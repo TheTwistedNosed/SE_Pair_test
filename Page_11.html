@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentence Equivalence Quiz</title>
+  <link rel="stylesheet" href="Page_style.css" />
+</head>
+<body>
+  <a id="choose-set" href="index.html" >Choose other page</a>
+  <div id="header"><h2>Sentence Equivalence Quiz</h2></div>
+  <div id="counter"></div>
+  <div id="quiz">
+    <h3 id="main-word"></h3>
+    <div id="options"></div>
+    <button onclick="submitAnswer()">Submit</button>
+    <div id="feedback"></div>
+    <div id="nav-buttons" class="hidden">
+      <button onclick="goToPrevious()">Previous</button>
+      <button onclick="pickNextWord()">Next</button>
+    </div>
+  </div>
+  <div id="result" class="hidden">
+    <h3>🎉 Quiz Complete!</h3>
+    <p id="time-taken"></p>
+  </div>
+<script>
+  // Seeded random generator (mulberry32)
+  const seed = Date.now() & 0xffffffff;
+  function mulberry32(a) {
+    return function() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+  }
+  const rng = mulberry32(seed);
+  function seededShuffle(array) {
+    const arr = array.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  const groups = [
+  ["Evenhanded","Impartial"],
+  ["Nebulous","Vague"],
+  ["Neutrality","Impartiality"],
+  ["Exalt","Valorize"],
+  ["Fiery","Impassioned"],
+  ["Jejune","Vapid"],
+  ["Zealous","Impassioned","Fervent","Fiery"],
+  ["Fluctuate","Vary","Vacillate"],
+  ["Honor","Venerate"],
+  ["Indigent","Impecunious"],
+  ["Reverence","Veneration"],
+  ["Hamper","Impede"],
+  ["Prolix","Verbose","Long-winded"],
+  ["Indiscernible","Imperceptible"],
+  ["Unyielding","Implacable"],
+  ["Protean","Versatile"],
+  ["Hasty","Impulsive","Rapid"],
+  ["Fickle","Versatile","Volatile","Flighty","Erratic","Capricious"],
+  ["Erroneous","Inaccurate"],
+  ["Relic","Vestige"],
+  ["Ominous","Inauspicious"],
+  ["Chagrin","Vexation"],
+  ["Innate","Inborn"],
+  ["Exculpate","Vindicate"],
+  ["Foundation","Inception","Bedrock"],
+  ["Contravene","Violate"],
+  ["Acute","Incisive","Severe"],
+  ["All-encompassing","Inclusive","Generic"],
+  ["Conspicuous","Visible","Prominent","Obtrusive"],
+  ["Incomprehensible","Inexplicable"],
+  ["Inexplicable","Incomprehensible"],
+  ["Mercurial","Volatile","Inconstant"],
+  ["Discrepancy","Incongruity"],
+  ["Prodigious","Voracious"],
+  ["Immaterial","Inconsequential"],
+  ["Entailed by","Inferable from"],
+  ["Trivial","Inconsequential","Immaterial"],
+  ["Provocative","Inflammatory"],
+  ["Mixed","Inconsistent"],
+  ["Intrinsic","Inherent"],
+  ["Indubitable","Incontrovertible"],
+  ["Benign","Innocuous","Anodyne"],
+  ["Beholden","Indebted"],
+  ["Experimental","Innovative"],
+  ["Unseemly","Indecorous"],
+  ["Unfathomable","Inscrutable"],
+  ["Excoriate","Indict","Crab"],
+  ["Surmise","Infer"],
+  ["Vile","Base"],
+  ["Controversial","Provocative"],
+  ["Irksome","Virulent"],
+  ["Persistent","Survival"],
+  ["Feigned","False"],
+  ["Broached","Proposed"],
+  ["Spurned","Rebuff"],
+  ["Antipathetic to","Inconsistent with"],
+  ["Prominence","Salience"],
+  ["Shrieking","Caterwauling"],
+  ["Contingencies","Serendipity"],
+  ["Familiar","Recognizable"],
+  ["Inapplicable","Unwarranted"],
+  ["Inept","Unequal to"],
+  ["Circuitous","Indirect"],
+  ["Essential","Indispensable","Foundational"],
+  ["Diligent","Industrious"],
+  ["Irascible","Choleric"]
+]
+;
+
+  let queue = seededShuffle(groups.flatMap(g => g.map(w => ({ word: w, group: g }))));
+  let reviewQueue = [];
+  let seen = {};
+  const startTime = Date.now();
+  let current = null;
+  let previousStack = [];
+
+  function updateCounter() {
+    const remaining = queue.length + reviewQueue.length + (current ? 1 : 0);
+    document.getElementById('counter').innerText = `Questions remaining: ${remaining}`;
+  }
+
+  function pickNextWord() {
+    document.getElementById("nav-buttons").classList.add("hidden");
+    if (queue.length === 0 && reviewQueue.length === 0) return endQuiz();
+    if (queue.length === 0) { queue = reviewQueue.slice(); reviewQueue = []; }
+    if (current) previousStack.push(current);
+    current = queue.shift();
+
+    // Update counter
+    updateCounter();
+
+    const correctList = current.group.filter(w => w !== current.word);
+    const maxCorrect = Math.min(correctList.length, 3);
+    const numCorrect = Math.floor(rng() * maxCorrect) + 1;
+    const shownCorrect = seededShuffle(correctList).slice(0, numCorrect);
+    const allWords = Array.from(new Set(groups.flat()));
+    const shownWrong = seededShuffle(allWords.filter(w => !current.group.includes(w))).slice(0, 6 - shownCorrect.length);
+    const options = seededShuffle(shownCorrect.concat(shownWrong));
+
+    current.shownCorrect = shownCorrect;
+    current.options = options;
+
+    document.getElementById("main-word").innerText = `Find synonyms of: ${current.word}`;
+    const optionsDiv = document.getElementById("options");
+    optionsDiv.innerHTML = "";
+    options.forEach(opt => {
+      const div = document.createElement("div");
+      div.className = "option";
+      div.innerText = opt;
+      div.onclick = () => div.classList.toggle("selected");
+      optionsDiv.appendChild(div);
+    });
+    document.getElementById("feedback").innerHTML = "";
+  }
+
+  function submitAnswer() {
+    const selected = Array.from(document.querySelectorAll(".option.selected")).map(el => el.innerText);
+    const shownCorrect = current.shownCorrect;
+    const wrongSelected = selected.filter(w => !shownCorrect.includes(w));
+    const missedCorrect = shownCorrect.filter(w => !selected.includes(w));
+    const isCorrect = wrongSelected.length === 0 && missedCorrect.length === 0;
+
+    const feedback = document.getElementById("feedback");
+    feedback.innerHTML = `<p>Group words: <strong>${current.group.join(", ")}</strong></p>`;
+
+    seen[current.word] = (seen[current.word] || 0) + 1;
+    if (!isCorrect) { feedback.innerHTML += `<p style='color:red;'>Incorrect!</p>`; reviewQueue.push(current); }
+    else {
+      feedback.innerHTML += `<p style='color:green;'>Correct!</p>`;
+      if (seen[current.word] < 2) {
+        const againBtn = document.createElement("button");
+        againBtn.innerText = "Review again later";
+        againBtn.onclick = () => { reviewQueue.push(current); pickNextWord(); };
+        const skipBtn = document.createElement("button");
+        skipBtn.innerText = "Skip review";
+        skipBtn.onclick = pickNextWord;
+        feedback.appendChild(againBtn);
+        feedback.appendChild(skipBtn);
+        document.getElementById("nav-buttons").classList.remove("hidden");
+        return;
+      }
+    }
+    document.getElementById("nav-buttons").classList.remove("hidden");
+  }
+
+  function goToPrevious() {
+    if (!current || previousStack.length === 0) return;
+    queue.unshift(current);
+    current = previousStack.pop();
+    document.getElementById("main-word").innerText = `Find synonyms of: ${current.word}`;
+    const optionsDiv = document.getElementById("options");
+    optionsDiv.innerHTML = "";
+    current.options.forEach(opt => {
+      const div = document.createElement("div");
+      div.className = "option";
+      div.innerText = opt;
+      div.onclick = () => div.classList.toggle("selected");
+      optionsDiv.appendChild(div);
+    });
+    document.getElementById("feedback").innerHTML = "";
+    document.getElementById("nav-buttons").classList.add("hidden");
+    updateCounter();
+  }
+
+  function endQuiz() {
+    document.getElementById("quiz").classList.add("hidden");
+    document.getElementById("result").classList.remove("hidden");
+    const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    document.getElementById("time-taken").innerText = `You completed the quiz in ${minutes}m ${seconds}s.`;
+    document.getElementById('counter').innerText = '';
+  }
+
+  pickNextWord();
+</script>
+</body>
+</html>
